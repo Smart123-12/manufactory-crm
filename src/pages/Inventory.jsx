@@ -1,14 +1,25 @@
 import React, { useState } from 'react';
 import { 
-  Plus, Search, AlertTriangle, Printer, ArrowDownToLine, Tag, Filter, CheckCircle2 
+  Plus, Search, AlertTriangle, Printer, ArrowDownToLine, Tag, Filter, CheckCircle2, QrCode, Maximize, Sparkles 
 } from 'lucide-react';
 
-export default function Inventory({ inventory, onAddStock, onAdjustStock }) {
+export default function Inventory({ 
+  inventory, 
+  onAddStock, 
+  onAdjustStock,
+  userRole = 'Owner'
+}) {
+  const isEditable = userRole === 'Owner' || userRole === 'Admin' || userRole === 'Store Manager';
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('All'); // All, Raw Material, Finished Good
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState('');
   
+  // Barcode Scanner Simulator states
+  const [scannedSkuId, setScannedSkuId] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanSuccess, setScanSuccess] = useState(false);
+
   // New stock item fields
   const [newStock, setNewStock] = useState({
     name: '', category: 'Raw Material', stock: 0, unit: 'Pieces', minStock: 10, batch: 'B-NEW-01', location: 'Warehouse A1', barcode: ''
@@ -16,6 +27,28 @@ export default function Inventory({ inventory, onAddStock, onAdjustStock }) {
 
   // Adjust stock fields
   const [purchaseQty, setPurchaseQty] = useState(0);
+
+  // Trigger Scanner Simulation
+  const handleTriggerLaserScan = () => {
+    if (!scannedSkuId) {
+      alert("Please select a registered barcode from the list to scan.");
+      return;
+    }
+    setIsScanning(true);
+    setScanSuccess(false);
+    
+    // Simulate laser reading delay
+    setTimeout(() => {
+      setIsScanning(false);
+      setScanSuccess(true);
+      const matchedItem = inventory.find(i => i.id === scannedSkuId);
+      if (matchedItem) {
+        setSelectedItemId(matchedItem.id);
+        setPurchaseQty(Math.floor(100 + Math.random() * 400)); // Simulate a random box count batch inward
+      }
+      setTimeout(() => setScanSuccess(false), 2000);
+    }, 850);
+  };
 
   // Filters
   const filteredItems = inventory.filter(item => {
@@ -63,6 +96,16 @@ export default function Inventory({ inventory, onAddStock, onAdjustStock }) {
 
   return (
     <div className="space-y-6">
+      
+      {!isEditable && (
+        <div className="bg-amber-50 border border-amber-200/80 p-4 rounded-xl text-amber-850 text-xs font-semibold flex items-start gap-3 shadow-sm">
+          <div className="p-1.5 bg-amber-100 rounded-lg text-amber-700 font-extrabold mt-0.5">⚠️</div>
+          <div>
+            <span className="font-bold text-sm block text-amber-900 mb-0.5">Read-Only Archive Access</span>
+            Your operational role (<strong>{userRole}</strong>) has read-only access to this module. Catalog item registrations, purchase inwarding, and manual stock updates are locked.
+          </div>
+        </div>
+      )}
       
       {/* 1. KPI Top Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -225,64 +268,145 @@ export default function Inventory({ inventory, onAddStock, onAdjustStock }) {
           </div>
         </div>
 
-        {/* Right Form Panel: Rapid Stock Purchase Receipt Log */}
-        <div className="glass-panel p-5 rounded-xl space-y-4 h-fit">
-          <div className="border-b border-slate-150 pb-3">
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
-              <ArrowDownToLine className="w-4 h-4 text-brand-500" /> Stock Purchase Entry
-            </h4>
-            <p className="text-[10px] text-slate-400 mt-0.5">Increases catalog inventory count instantly</p>
+        {/* Right Column: Inward Stock & Scanner */}
+        <div className="space-y-6 lg:col-span-1">
+          
+          {/* Right Form Panel: Rapid Stock Purchase Receipt Log */}
+          <div className={`glass-panel p-5 rounded-xl space-y-4 h-fit transition-all duration-300
+            ${scanSuccess ? 'ring-2 ring-emerald-500 bg-emerald-50/10' : ''}
+          `}>
+            <div className="border-b border-slate-150 pb-3">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                <ArrowDownToLine className="w-4 h-4 text-brand-500" /> Stock Purchase Entry
+              </h4>
+              <p className="text-[10px] text-slate-400 mt-0.5">Increases catalog inventory count instantly</p>
+            </div>
+
+            <form onSubmit={handleRecordPurchase} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-600 mb-1">Select Catalog SKU *</label>
+                <select
+                  required
+                  disabled={!isEditable}
+                  value={selectedItemId}
+                  onChange={(e) => setSelectedItemId(e.target.value)}
+                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">-- Choose Stock SKU --</option>
+                  {inventory.map(item => (
+                    <option key={item.id} value={item.id}>{item.name} ({item.stock} {item.unit} in stock)</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-600 mb-1">Purchase / Inward Qty *</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    required
+                    disabled={!isEditable}
+                    min="0.1"
+                    step="any"
+                    value={purchaseQty}
+                    onChange={(e) => setPurchaseQty(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded p-2 pr-16 text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    placeholder="e.g. 500"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
+                    {selectedItemId ? inventory.find(i => i.id === selectedItemId)?.unit : 'units'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded border border-slate-150 space-y-1.5">
+                <h5 className="font-bold text-slate-600 text-[10px]">Purchase Terms:</h5>
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  Recording an inward delivery updates stock levels, resets alerts, and registers under the active system audit trace automatically.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={!isEditable}
+                className={`w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg shadow-md flex items-center justify-center gap-1.5 transition-all
+                  ${!isEditable ? 'opacity-50 cursor-not-allowed bg-slate-350' : 'active:scale-95'}
+                `}
+              >
+                <CheckCircle2 className="w-4 h-4" /> Add Received Stock
+              </button>
+            </form>
           </div>
 
-          <form onSubmit={handleRecordPurchase} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-semibold text-slate-600 mb-1">Select Catalog SKU *</label>
-              <select
-                required
-                value={selectedItemId}
-                onChange={(e) => setSelectedItemId(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded p-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
-              >
-                <option value="">-- Choose Stock SKU --</option>
-                {inventory.map(item => (
-                  <option key={item.id} value={item.id}>{item.name} ({item.stock} in stock)</option>
-                ))}
-              </select>
+          {/* Barcode Scanner Simulator Panel */}
+          <div className="glass-panel p-5 rounded-xl space-y-4 bg-white border border-slate-200">
+            <div className="border-b border-slate-150 pb-3">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                <QrCode className="w-4 h-4 text-brand-500 animate-pulse-subtle" /> Barcode laser simulator
+              </h4>
+              <p className="text-[10px] text-slate-400 mt-0.5">Test scanning B2B raw materials & packaging labels</p>
             </div>
 
-            <div>
-              <label className="block font-semibold text-slate-600 mb-1">Purchase / Inward Qty *</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  required
-                  min="0.1"
-                  step="any"
-                  value={purchaseQty}
-                  onChange={(e) => setPurchaseQty(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded p-2 pr-16 text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
-                  placeholder="e.g. 500"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
-                  {selectedItemId ? inventory.find(i => i.id === selectedItemId)?.unit : 'units'}
-                </span>
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-600 mb-1">Select SKU Barcode Label *</label>
+                <select
+                  value={scannedSkuId}
+                  onChange={(e) => setScannedSkuId(e.target.value)}
+                  disabled={!isEditable}
+                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-855 font-bold focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">-- Choose registered label --</option>
+                  {inventory.map(item => (
+                    <option key={item.id} value={item.id}>{item.barcode} - {item.name}</option>
+                  ))}
+                </select>
               </div>
-            </div>
 
-            <div className="bg-slate-50 p-3 rounded border border-slate-150 space-y-1.5">
-              <h5 className="font-bold text-slate-600 text-[10px]">Purchase Terms:</h5>
-              <p className="text-[10px] text-slate-400 leading-relaxed">
-                Recording an inward delivery updates stock levels, resets alerts, and registers under the active system audit trace automatically.
-              </p>
-            </div>
+              {/* Interactive Laser Scanning Viewbox */}
+              <div className="relative bg-slate-950 h-28 rounded-xl overflow-hidden flex items-center justify-center border border-slate-800 shadow-inner">
+                {/* Crosshair Target */}
+                <Maximize className="absolute w-8 h-8 text-slate-800 opacity-60" />
+                <div className="w-20 h-20 border border-dashed border-slate-800 rounded-lg absolute"></div>
 
-            <button
-              type="submit"
-              className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg shadow-md flex items-center justify-center gap-1.5"
-            >
-              <CheckCircle2 className="w-4 h-4" /> Add Received Stock
-            </button>
-          </form>
+                {isScanning ? (
+                  <>
+                    {/* Pulsing red laser beam */}
+                    <div className="w-full h-0.5 bg-rose-500 shadow-[0_0_8px_#f43f5e] absolute animate-bounce"></div>
+                    <span className="text-[9px] text-rose-500 font-mono font-bold uppercase tracking-widest animate-pulse z-10">
+                      Reading barcode...
+                    </span>
+                  </>
+                ) : scanSuccess ? (
+                  <div className="text-center space-y-1 z-10 animate-fade-in bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/30">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto" />
+                    <p className="text-[9px] text-emerald-400 font-mono font-bold uppercase tracking-wider">
+                      Successfully read barcode!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center space-y-1 text-slate-600">
+                    <QrCode className="w-6 h-6 mx-auto opacity-40" />
+                    <p className="text-[9px] font-medium tracking-wide">
+                      Awaiting laser trigger...
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleTriggerLaserScan}
+                disabled={!isEditable || isScanning}
+                className={`w-full py-2 bg-rose-600 hover:bg-rose-550 text-white font-bold rounded-lg shadow-md flex items-center justify-center gap-1.5 transition-all
+                  ${(!isEditable || isScanning) ? 'opacity-50 cursor-not-allowed bg-slate-350 hover:bg-slate-350' : 'active:scale-95'}
+                `}
+              >
+                <Sparkles className="w-3.5 h-3.5" /> Trigger Laser Scan
+              </button>
+            </div>
+          </div>
+
         </div>
 
       </div>

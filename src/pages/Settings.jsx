@@ -3,7 +3,8 @@ import {
   Save, Landmark, Sliders, FileText, Bell, Shield, HelpCircle, Building2, Globe, Check 
 } from 'lucide-react';
 
-export default function Settings() {
+export default function Settings({ userRole = 'Owner' }) {
+  const isEditable = userRole === 'Owner' || userRole === 'Admin';
   const [activeSubTab, setActiveSubTab] = useState('factory');
   const [gstin, setGstin] = useState('27AAACK1209D1ZQ');
   const [factoryName, setFactoryName] = useState('Manufactory CRM Industries');
@@ -15,6 +16,7 @@ export default function Settings() {
 
   const handleSave = (e) => {
     e.preventDefault();
+    if (!isEditable) return;
     setSuccessSaved(true);
     setTimeout(() => setSuccessSaved(false), 3000);
   };
@@ -67,6 +69,12 @@ export default function Settings() {
         {/* Right Details Panel */}
         <div className="glass-panel p-6 rounded-xl border border-slate-200 md:col-span-3 space-y-6">
           
+          {!isEditable && (
+            <div className="bg-amber-55 border border-amber-200 text-amber-850 p-4 rounded-xl flex items-center gap-3 text-xs font-semibold shadow-sm animate-pulse">
+              <span>⚠️ Access Constrained: Your role does not have authorization to modify registered corporate details or credit thresholds.</span>
+            </div>
+          )}
+
           {/* TAB 1: Factory details */}
           {activeSubTab === 'factory' && (
             <form onSubmit={handleSave} className="space-y-4 text-xs">
@@ -82,7 +90,8 @@ export default function Settings() {
                   required
                   value={factoryName}
                   onChange={(e) => setFactoryName(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  disabled={!isEditable}
+                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -94,7 +103,8 @@ export default function Settings() {
                     required
                     value={gstin}
                     onChange={(e) => setGstin(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded p-2 text-slate-800 font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    disabled={!isEditable}
+                    className="w-full bg-white border border-slate-200 rounded p-2 text-slate-800 font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-1">
@@ -116,7 +126,8 @@ export default function Settings() {
                   required
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  disabled={!isEditable}
+                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -143,7 +154,10 @@ export default function Settings() {
                 )}
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg ml-auto flex items-center gap-1.5"
+                  disabled={!isEditable}
+                  className={`px-4 py-2 text-white font-bold rounded-lg ml-auto flex items-center gap-1.5 transition-all
+                    ${isEditable ? 'bg-brand-600 hover:bg-brand-500 shadow-md' : 'bg-slate-300 cursor-not-allowed opacity-60'}
+                  `}
                 >
                   <Save className="w-4 h-4" /> Save changes
                 </button>
@@ -166,12 +180,16 @@ export default function Settings() {
                     type="number" 
                     value={creditLimit}
                     onChange={(e) => setCreditLimit(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded p-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    disabled={!isEditable}
+                    className="w-full bg-white border border-slate-200 rounded p-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-1">
                   <label className="block text-slate-550 font-semibold">GST Rate Ceiling for Industrial Goods</label>
-                  <select className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                  <select 
+                    disabled={!isEditable}
+                    className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                  >
                     <option value="18">18% (Standard Manufacturing)</option>
                     <option value="12">12% (Intermediate spares)</option>
                     <option value="28">28% (Automotive heavy engines)</option>
@@ -186,7 +204,8 @@ export default function Settings() {
                     type="checkbox"
                     checked={autoEway}
                     onChange={(e) => setAutoEway(e.target.checked)}
-                    className="rounded bg-white border-slate-200 text-brand-500 focus:ring-brand-500 focus:ring-offset-0 focus:ring-0"
+                    disabled={!isEditable}
+                    className="rounded bg-white border-slate-200 text-brand-500 focus:ring-brand-500 focus:ring-offset-0 focus:ring-0 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed"
                   />
                   <span>Auto-generate e-Way Bills for invoices above ₹50,000 via NIC Portal APIs</span>
                 </label>
@@ -195,7 +214,8 @@ export default function Settings() {
                   <input
                     type="checkbox"
                     defaultChecked
-                    className="rounded bg-white border-slate-200 text-brand-500 focus:ring-brand-500 focus:ring-offset-0 focus:ring-0"
+                    disabled={!isEditable}
+                    className="rounded bg-white border-slate-200 text-brand-500 focus:ring-brand-500 focus:ring-offset-0 focus:ring-0 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed"
                   />
                   <span>Block deliveries for customers exceeding credit terms by 30+ days</span>
                 </label>
@@ -209,7 +229,10 @@ export default function Settings() {
                 )}
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg ml-auto flex items-center gap-1.5"
+                  disabled={!isEditable}
+                  className={`px-4 py-2 text-white font-bold rounded-lg ml-auto flex items-center gap-1.5 transition-all
+                    ${isEditable ? 'bg-brand-600 hover:bg-brand-500 shadow-md' : 'bg-slate-300 cursor-not-allowed opacity-60'}
+                  `}
                 >
                   <Save className="w-4 h-4" /> Save changes
                 </button>
@@ -231,7 +254,8 @@ export default function Settings() {
                     type="checkbox"
                     checked={whatsappAlerts}
                     onChange={(e) => setWhatsappAlerts(e.target.checked)}
-                    className="rounded bg-white border-slate-200 text-brand-500 focus:ring-brand-500"
+                    disabled={!isEditable}
+                    className="rounded bg-white border-slate-200 text-brand-500 focus:ring-brand-500 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed"
                   />
                   <span>Send direct WhatsApp Quotation / Invoice PDF attachments upon validation</span>
                 </label>
@@ -240,7 +264,8 @@ export default function Settings() {
                   <input
                     type="checkbox"
                     defaultChecked
-                    className="rounded bg-white border-slate-200 text-brand-500 focus:ring-brand-500"
+                    disabled={!isEditable}
+                    className="rounded bg-white border-slate-200 text-brand-500 focus:ring-brand-500 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed"
                   />
                   <span>Alert Plant Manager (SMS) immediately upon critical Machine Halt / red state</span>
                 </label>
@@ -249,7 +274,8 @@ export default function Settings() {
                   <input
                     type="checkbox"
                     defaultChecked
-                    className="rounded bg-white border-slate-200 text-brand-500 focus:ring-brand-500"
+                    disabled={!isEditable}
+                    className="rounded bg-white border-slate-200 text-brand-500 focus:ring-brand-500 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed"
                   />
                   <span>Send auto-procurement triggers to catalog vendor for safety stock low items</span>
                 </label>
@@ -263,7 +289,10 @@ export default function Settings() {
                 )}
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg ml-auto flex items-center gap-1.5"
+                  disabled={!isEditable}
+                  className={`px-4 py-2 text-white font-bold rounded-lg ml-auto flex items-center gap-1.5 transition-all
+                    ${isEditable ? 'bg-brand-600 hover:bg-brand-500 shadow-md' : 'bg-slate-300 cursor-not-allowed opacity-60'}
+                  `}
                 >
                   <Save className="w-4 h-4" /> Save changes
                 </button>

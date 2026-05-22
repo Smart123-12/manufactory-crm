@@ -10,9 +10,20 @@ export default function Production({
   productionLogs, 
   onLogProduction, 
   onUpdateMachineStatus,
-  onUpdateWorkerMachine
+  onUpdateWorkerMachine,
+  userRole = 'Owner'
 }) {
-  const [activeSubTab, setActiveSubTab] = useState('floor'); // floor, logger, logs, shifts
+  const isEditable = userRole === 'Owner' || userRole === 'Admin' || userRole === 'Production Supervisor';
+  const [activeSubTab, setActiveSubTab] = useState('floor'); // floor, logger, logs, allocations
+
+  // Checklist modal states
+  const [showChecklistMachineId, setShowChecklistMachineId] = useState(null);
+  const [checklistItems, setChecklistItems] = useState({
+    calibration: false,
+    fluids: false,
+    gates: false,
+    debris: false
+  });
   
   // Log form states
   const [selectedMachineId, setSelectedMachineId] = useState('');
@@ -26,8 +37,29 @@ export default function Production({
   const [reassignWorkerId, setReassignWorkerId] = useState('');
   const [reassignMachineId, setReassignMachineId] = useState('');
 
+  const handleRunClick = (machineId) => {
+    if (!isEditable) return;
+    setChecklistItems({
+      calibration: false,
+      fluids: false,
+      gates: false,
+      debris: false
+    });
+    setShowChecklistMachineId(machineId);
+  };
+
+  const handleCompleteChecklist = () => {
+    if (!showChecklistMachineId) return;
+    onUpdateMachineStatus(showChecklistMachineId, 'Running');
+    setShowChecklistMachineId(null);
+  };
+
   const handleCreateLog = (e) => {
     e.preventDefault();
+    if (!isEditable) {
+      alert('Role Unauthorized: You do not have permissions to write shop floor logs.');
+      return;
+    }
     if (!selectedMachineId || !selectedOperator || outputQty <= 0) {
       alert('Please fill out Machine, Operator, and a valid Output Quantity.');
       return;
@@ -68,6 +100,10 @@ export default function Production({
 
   const handleWorkerAssignmentSubmit = (e) => {
     e.preventDefault();
+    if (!isEditable) {
+      alert('Role Unauthorized: You do not have permissions to change worker allocations.');
+      return;
+    }
     if (!reassignWorkerId) return;
     onUpdateWorkerMachine(reassignWorkerId, reassignMachineId);
     setReassignWorkerId('');
@@ -189,29 +225,35 @@ export default function Production({
                 {/* State Toggles Action Menu */}
                 <div className="border-t border-slate-200 pt-3.5 flex items-center justify-between text-xs">
                   <span className="text-slate-550 font-semibold uppercase tracking-wider text-[9px]">Toggle Status:</span>
-                  <div className="flex gap-1.5">
-                    <button 
-                      onClick={() => onUpdateMachineStatus(mach.id, 'Running')}
-                      disabled={mach.status === 'Running'}
-                      className="p-1 rounded bg-white hover:bg-emerald-50 text-emerald-600 disabled:opacity-20 border border-emerald-250 transition-all text-[10px] font-bold shadow-sm"
-                    >
-                      Run
-                    </button>
-                    <button 
-                      onClick={() => onUpdateMachineStatus(mach.id, 'Idle')}
-                      disabled={mach.status === 'Idle'}
-                      className="p-1 rounded bg-white hover:bg-amber-50 text-amber-600 disabled:opacity-20 border border-amber-250 transition-all text-[10px] font-bold shadow-sm"
-                    >
-                      Idle
-                    </button>
-                    <button 
-                      onClick={() => onUpdateMachineStatus(mach.id, 'Maintenance')}
-                      disabled={mach.status === 'Maintenance'}
-                      className="p-1 rounded bg-white hover:bg-rose-50 text-rose-600 disabled:opacity-20 border border-rose-250 transition-all text-[10px] font-bold shadow-sm"
-                    >
-                      Stop
-                    </button>
-                  </div>
+                  {!isEditable ? (
+                    <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                      🔒 Read-Only
+                    </span>
+                  ) : (
+                    <div className="flex gap-1.5">
+                      <button 
+                        onClick={() => handleRunClick(mach.id)}
+                        disabled={mach.status === 'Running'}
+                        className="p-1 rounded bg-white hover:bg-emerald-50 text-emerald-600 disabled:opacity-20 border border-emerald-250 transition-all text-[10px] font-bold shadow-sm"
+                      >
+                        Run
+                      </button>
+                      <button 
+                        onClick={() => onUpdateMachineStatus(mach.id, 'Idle')}
+                        disabled={mach.status === 'Idle'}
+                        className="p-1 rounded bg-white hover:bg-amber-50 text-amber-600 disabled:opacity-20 border border-amber-250 transition-all text-[10px] font-bold shadow-sm"
+                      >
+                        Idle
+                      </button>
+                      <button 
+                        onClick={() => onUpdateMachineStatus(mach.id, 'Maintenance')}
+                        disabled={mach.status === 'Maintenance'}
+                        className="p-1 rounded bg-white hover:bg-rose-50 text-rose-600 disabled:opacity-20 border border-rose-250 transition-all text-[10px] font-bold shadow-sm"
+                      >
+                        Stop
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -221,7 +263,7 @@ export default function Production({
 
       {/* 2. TAB: Log Output Form */}
       {activeSubTab === 'logger' && (
-        <div className="glass-panel p-6 rounded-xl max-w-2xl">
+        <div className="glass-panel p-6 rounded-xl max-w-2xl bg-white border border-slate-200 shadow-sm">
           <div className="border-b border-slate-200 pb-4 mb-6 flex justify-between items-center">
             <div>
               <h3 className="text-sm font-bold text-slate-850">Daily Production Inward Logger</h3>
@@ -230,6 +272,16 @@ export default function Production({
             <Activity className="w-5 h-5 text-brand-500" />
           </div>
 
+          {!isEditable && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 flex items-center gap-3">
+              <AlertOctagon className="w-5 h-5 text-amber-600 flex-shrink-0 animate-pulse" />
+              <div>
+                <p className="font-bold">View-Only Mode Enabled</p>
+                <p className="text-[10px] text-amber-700 font-medium">Daily Production Inward logging is restricted strictly to Production Supervisor, Admin, or Owner roles.</p>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleCreateLog} className="space-y-5 text-xs">
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -237,9 +289,10 @@ export default function Production({
                 <label className="block text-slate-600 font-semibold mb-1.5">Machine Unit *</label>
                 <select
                   required
+                  disabled={!isEditable}
                   value={selectedMachineId}
                   onChange={(e) => setSelectedMachineId(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-100 disabled:text-slate-400"
                 >
                   <option value="">-- Choose Machine --</option>
                   {machines.map(m => (
@@ -252,9 +305,10 @@ export default function Production({
                 <label className="block text-slate-600 font-semibold mb-1.5">Assigned Operator *</label>
                 <select
                   required
+                  disabled={!isEditable}
                   value={selectedOperator}
                   onChange={(e) => setSelectedOperator(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-100 disabled:text-slate-400"
                 >
                   <option value="">-- Select Worker --</option>
                   {workers.map(w => (
@@ -270,11 +324,12 @@ export default function Production({
                 <input 
                   type="number"
                   required
+                  disabled={!isEditable}
                   min="1"
                   placeholder="e.g. 1500"
                   value={outputQty}
                   onChange={(e) => setOutputQty(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-100 disabled:text-slate-400"
                 />
               </div>
 
@@ -283,10 +338,11 @@ export default function Production({
                 <input 
                   type="number"
                   min="0"
+                  disabled={!isEditable}
                   placeholder="e.g. 15"
                   value={wastageQty}
                   onChange={(e) => setWastageQty(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-100 disabled:text-slate-400"
                 />
               </div>
             </div>
@@ -297,19 +353,21 @@ export default function Production({
                 <input 
                   type="number"
                   min="0"
+                  disabled={!isEditable}
                   placeholder="e.g. 30 mins"
                   value={downtimeMins}
                   onChange={(e) => setDowntimeMins(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-100 disabled:text-slate-400"
                 />
               </div>
 
               <div>
                 <label className="block text-slate-600 font-semibold mb-1.5">Downtime / Halt Reason</label>
                 <select
+                  disabled={!isEditable}
                   value={downtimeReason}
                   onChange={(e) => setDowntimeReason(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-100 disabled:text-slate-400"
                 >
                   <option value="">-- Select Reason (If halted) --</option>
                   <option value="Tool Changeover">Tool Changeover</option>
@@ -324,9 +382,23 @@ export default function Production({
 
             <button
               type="submit"
-              className="w-full py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-1.5"
+              disabled={!isEditable}
+              className={`w-full py-3 font-bold rounded-lg shadow-lg flex items-center justify-center gap-1.5 transition-all
+                ${isEditable 
+                  ? 'bg-brand-600 hover:bg-brand-500 text-white cursor-pointer shadow-brand-100' 
+                  : 'bg-slate-150 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
+                }
+              `}
             >
-              <CheckCircle2 className="w-4 h-4" /> Save Shop Floor Production Entry
+              {isEditable ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4" /> Save Shop Floor Production Entry
+                </>
+              ) : (
+                <>
+                  🔒 Entry Form Locked (Read-Only)
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -444,7 +516,7 @@ export default function Production({
           </div>
 
           {/* Rapid re-assignment form */}
-          <div className="glass-panel p-5 rounded-xl space-y-4 h-fit">
+          <div className="glass-panel p-5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-4 h-fit">
             <div className="border-b border-slate-200 pb-3">
               <h4 className="text-xs font-bold text-slate-805 uppercase tracking-widest flex items-center gap-1.5">
                 <Wrench className="w-4 h-4 text-brand-500" /> Allocate Machine duty
@@ -452,14 +524,21 @@ export default function Production({
               <p className="text-[10px] text-slate-500">Quickly delegate operators to custom assets</p>
             </div>
 
+            {!isEditable && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[10px] leading-relaxed">
+                🔒 <strong>View-Only</strong>: Delegate re-assignment is restricted to Supervisors and Admins.
+              </div>
+            )}
+
             <form onSubmit={handleWorkerAssignmentSubmit} className="space-y-4 text-xs">
               <div>
                 <label className="block font-semibold text-slate-600 mb-1">Select Operator *</label>
                 <select
                   required
+                  disabled={!isEditable}
                   value={reassignWorkerId}
                   onChange={(e) => setReassignWorkerId(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-100 disabled:text-slate-400"
                 >
                   <option value="">-- Choose Operator --</option>
                   {workers.map(w => (
@@ -472,9 +551,10 @@ export default function Production({
                 <label className="block font-semibold text-slate-600 mb-1">Assign Machine *</label>
                 <select
                   required
+                  disabled={!isEditable}
                   value={reassignMachineId}
                   onChange={(e) => setReassignMachineId(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full bg-white border border-slate-200 rounded p-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-100 disabled:text-slate-400"
                 >
                   <option value="">-- Select Machine --</option>
                   <option value="None">None (Unassigned / Buffer)</option>
@@ -486,13 +566,129 @@ export default function Production({
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg shadow-md flex items-center justify-center gap-1.5"
+                disabled={!isEditable}
+                className={`w-full py-2.5 font-bold rounded-lg shadow-md flex items-center justify-center gap-1.5 transition-all
+                  ${isEditable 
+                    ? 'bg-brand-600 hover:bg-brand-500 text-white cursor-pointer shadow-brand-100' 
+                    : 'bg-slate-150 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
+                  }
+                `}
               >
-                <CheckCircle2 className="w-4 h-4" /> Save Assignment
+                {isEditable ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" /> Save Assignment
+                  </>
+                ) : (
+                  <>
+                    🔒 Duty Form Locked
+                  </>
+                )}
               </button>
             </form>
           </div>
 
+        </div>
+      )}
+
+      {/* Pre-Run Calibration & Safety Checklist Modal */}
+      {showChecklistMachineId && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center text-xs">
+              <span className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                <Wrench className="w-4 h-4 text-brand-600 animate-spin-slow" />
+                Pre-Run Safety & Calibration Checklist
+              </span>
+              <button 
+                onClick={() => setShowChecklistMachineId(null)}
+                className="text-slate-400 hover:text-slate-650 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4 text-xs">
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <span className="text-[9px] text-slate-400 font-mono font-bold uppercase tracking-wider">Target Machine ID: {showChecklistMachineId}</span>
+                <h4 className="font-extrabold text-slate-800 text-sm mt-0.5">
+                  {machines.find(m => m.id === showChecklistMachineId)?.name}
+                </h4>
+                <p className="text-[10px] text-slate-500 mt-0.5">Operator: {machines.find(m => m.id === showChecklistMachineId)?.operator || 'None'}</p>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-150 hover:bg-slate-50/50 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={checklistItems.calibration}
+                    onChange={(e) => setChecklistItems({ ...checklistItems, calibration: e.target.checked })}
+                    className="mt-0.5 rounded bg-white border-slate-350 text-brand-600 focus:ring-brand-500"
+                  />
+                  <div>
+                    <p className="font-bold text-slate-700">Pre-operation Calibration Verified</p>
+                    <p className="text-[10px] text-slate-500">Ensure the unit dial controls, switches, and baseline feeds are fully aligned.</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-150 hover:bg-slate-50/50 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={checklistItems.fluids}
+                    onChange={(e) => setChecklistItems({ ...checklistItems, fluids: e.target.checked })}
+                    className="mt-0.5 rounded bg-white border-slate-350 text-brand-600 focus:ring-brand-500"
+                  />
+                  <div>
+                    <p className="font-bold text-slate-700">Hydraulic Fluids & Pressure Nominal</p>
+                    <p className="text-[10px] text-slate-500">Confirm pump pressure, cooling lines, and lubricating agents are at target levels.</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-150 hover:bg-slate-50/50 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={checklistItems.gates}
+                    onChange={(e) => setChecklistItems({ ...checklistItems, gates: e.target.checked })}
+                    className="mt-0.5 rounded bg-white border-slate-350 text-brand-600 focus:ring-brand-500"
+                  />
+                  <div>
+                    <p className="font-bold text-slate-700">Safety Gates & Sensors Engaged</p>
+                    <p className="text-[10px] text-slate-500">Check optoelectronic guards, barriers, and manual emergency shut-offs.</p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-150 hover:bg-slate-50/50 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={checklistItems.debris}
+                    onChange={(e) => setChecklistItems({ ...checklistItems, debris: e.target.checked })}
+                    className="mt-0.5 rounded bg-white border-slate-350 text-brand-600 focus:ring-brand-500"
+                  />
+                  <div>
+                    <p className="font-bold text-slate-700">Scrap & Tooling Debris Cleared</p>
+                    <p className="text-[10px] text-slate-500">Verify nozzle orifice, die chambers, or blades are free of residual metal/plastic scrap.</p>
+                  </div>
+                </label>
+              </div>
+
+              <div className="pt-4 border-t border-slate-200 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowChecklistMachineId(null)}
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCompleteChecklist}
+                  disabled={!(checklistItems.calibration && checklistItems.fluids && checklistItems.gates && checklistItems.debris)}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:hover:bg-emerald-600 text-white font-extrabold rounded-lg shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" /> Start Machine Run
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

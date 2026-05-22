@@ -345,9 +345,7 @@ export default function App() {
       setQuickModalType('purchase');
       setQuickModalData(data);
     }
-  };
-
-  // Render Sub-Views
+  };  // Render Sub-Views
   const renderActiveView = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -368,6 +366,7 @@ export default function App() {
       case 'quotations':
         return (
           <CRM 
+            userRole={userRole}
             customers={customers}
             quotations={quotations}
             orders={orders}
@@ -380,6 +379,7 @@ export default function App() {
       case 'orders':
         return (
           <CRM 
+            userRole={userRole}
             customers={customers}
             quotations={quotations}
             orders={orders}
@@ -392,6 +392,7 @@ export default function App() {
       case 'inventory':
         return (
           <Inventory 
+            userRole={userRole}
             inventory={filteredInventory}
             onAddStock={handleAddStock}
             onAdjustStock={handleAdjustStock}
@@ -402,6 +403,7 @@ export default function App() {
       case 'machines':
         return (
           <Production 
+            userRole={userRole}
             machines={filteredMachines}
             workers={workers}
             productionLogs={productionLogs}
@@ -415,6 +417,8 @@ export default function App() {
       case 'billing':
         return (
           <DispatchBilling 
+            userRole={userRole}
+            customers={customers}
             dispatchBilling={dispatchBilling}
             orders={orders}
             onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
@@ -425,6 +429,7 @@ export default function App() {
       case 'reports':
         return (
           <Reports 
+            userRole={userRole}
             monthlyData={monthlyRevenue}
             productProfitability={productProfitability}
             machines={filteredMachines}
@@ -439,6 +444,7 @@ export default function App() {
       case 'workers':
         return (
           <Production 
+            userRole={userRole}
             machines={filteredMachines}
             workers={workers}
             productionLogs={productionLogs}
@@ -449,10 +455,10 @@ export default function App() {
         );
 
       case 'settings':
-        return <Settings />;
+        return <Settings userRole={userRole} />;
 
       default:
-        return <div className="p-10 text-center text-slate-500">Feature Screen coming soon!</div>;
+        return <div className="p-10 text-center text-slate-550">Feature Screen coming soon!</div>;
     }
   };
 

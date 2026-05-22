@@ -8,8 +8,11 @@ export default function DispatchBilling({
   dispatchBilling, 
   orders,
   onUpdateInvoiceStatus, 
-  onLogDispatch 
+  onLogDispatch,
+  userRole = 'Owner',
+  customers = []
 }) {
+  const isEditable = userRole === 'Owner' || userRole === 'Admin' || userRole === 'Accountant';
   const [activeSubTab, setActiveSubTab] = useState('invoices'); // invoices, dispatch, collections
   const [selectedInvoice, setSelectedInvoice] = useState(null);
 
@@ -18,6 +21,27 @@ export default function DispatchBilling({
   const [transporter, setTransporter] = useState('');
   const [vehicleNo, setVehicleNo] = useState('');
   const [ewayBillNo, setEwayBillNo] = useState('');
+  const [inputGstin, setInputGstin] = useState('27AAACK1209D1ZQ');
+  const [nicEwayChecked, setNicEwayChecked] = useState(false);
+
+  const selectedOrderObj = orders.find(o => o.id === selectedOrderId);
+  const isEwayMandated = selectedOrderObj && selectedOrderObj.totalAmount > 50000;
+  const isGstinValid = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(inputGstin);
+
+  const handleOrderSelect = (orderId) => {
+    setSelectedOrderId(orderId);
+    const orderObj = orders.find(o => o.id === orderId);
+    if (orderObj) {
+      const custObj = customers.find(c => c.id === orderObj.customerId || c.name === orderObj.customerName);
+      if (custObj && custObj.gstin) {
+        setInputGstin(custObj.gstin);
+      } else {
+        setInputGstin('27AAACK1209D1ZQ');
+      }
+    } else {
+      setInputGstin('27AAACK1209D1ZQ');
+    }
+  };
 
   const formatINR = (value) => {
     return new Intl.NumberFormat('en-IN', {
@@ -29,10 +53,29 @@ export default function DispatchBilling({
 
   const handleCreateDispatch = (e) => {
     e.preventDefault();
+    if (!isEditable) {
+      alert('Access Constrained: Your role does not have permission to log dispatch cargo.');
+      return;
+    }
     if (!selectedOrderId || !transporter || !vehicleNo) {
       alert('Please fill out Order, Transporter and Vehicle Number.');
       return;
     }
+    if (!isGstinValid) {
+      alert('Invalid GSTIN format. Please provide a valid 15-digit GSTIN.');
+      return;
+    }
+    if (isEwayMandated) {
+      if (!ewayBillNo || ewayBillNo.trim() === '') {
+        alert('e-Way Bill is legally mandated for consignments exceeding ₹50,000. Please enter e-Way Bill Code.');
+        return;
+      }
+      if (!nicEwayChecked) {
+        alert('Please acknowledge automated NIC API e-Way Bill Generation before proceeding.');
+        return;
+      }
+    }
+
     const orderObj = orders.find(o => o.id === selectedOrderId);
     const invoiceId = `INV-2026-70${dispatchBilling.length + 1}`;
 
@@ -44,7 +87,7 @@ export default function DispatchBilling({
       subtotal: orderObj.totalAmount / 1.18, // assume 18% inclusive for order amount
       gstAmount: (orderObj.totalAmount / 1.18) * 0.18,
       grandTotal: orderObj.totalAmount,
-      gstin: "27AAACK1209D1ZQ", // general customer or user GST
+      gstin: inputGstin || "27AAACK1209D1ZQ",
       transporter: transporter,
       vehicleNo: vehicleNo.toUpperCase(),
       ewayBillNo: ewayBillNo || `EWAY${Math.floor(100000000000 + Math.random() * 900000000000)}`,
@@ -357,28 +400,64 @@ export default function DispatchBilling({
               </div>
 
               {/* Dispatch form panel */}
-              <div className="glass-panel p-5 rounded-xl space-y-4 h-fit">
+              <div className="glass-panel p-5 rounded-xl space-y-4 h-fit bg-white border border-slate-200">
                 <div className="border-b border-slate-200 pb-3">
                   <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
-                    <Truck className="w-4 h-4 text-brand-500" /> Log Dispatch & Invoice
+                    <Truck className="w-4 h-4 text-brand-500" /> Log Dispatch & e-Invoice
                   </h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Prepares dispatch bill and logs cargo</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Prepares dispatch bill and logs cargo with NIC e-Way</p>
                 </div>
+
+                {!isEditable && (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[11px] p-3 rounded-lg flex items-start gap-2 mb-2 font-medium">
+                    <AlertCircle className="w-4.5 h-4.5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Access Constrained</span>: Your role ({userRole}) does not have permission to log cargo dispatch or raise new tax invoices. Please contact an Owner, Admin, or Accountant.
+                    </div>
+                  </div>
+                )}
 
                 <form onSubmit={handleCreateDispatch} className="space-y-4 text-xs">
                   <div>
                     <label className="block font-semibold text-slate-600 mb-1">Select Completed Order *</label>
                     <select
                       required
+                      disabled={!isEditable}
                       value={selectedOrderId}
-                      onChange={(e) => setSelectedOrderId(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      onChange={(e) => handleOrderSelect(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400"
                     >
                       <option value="">-- Select Order --</option>
                       {orders.filter(o => o.status !== 'Completed').map(o => (
-                        <option key={o.id} value={o.id}>{o.customerName} ({o.id} • {o.productionStage})</option>
+                        <option key={o.id} value={o.id}>{o.customerName} ({o.id} • {o.productionStage} • {formatINR(o.totalAmount)})</option>
                       ))}
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Buyer GSTIN *</label>
+                    <input
+                      type="text"
+                      required
+                      disabled={!isEditable}
+                      placeholder="e.g. 27AAACT2910P1ZX"
+                      value={inputGstin}
+                      onChange={(e) => setInputGstin(e.target.value.toUpperCase())}
+                      className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500 uppercase font-mono font-bold disabled:bg-slate-50 disabled:text-slate-400"
+                    />
+                    {inputGstin && (
+                      <div className="mt-1 flex items-center gap-1.5">
+                        {isGstinValid ? (
+                          <span className="text-[10px] text-emerald-650 font-bold flex items-center gap-0.5">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> ✓ Valid GSTIN Format
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-amber-600 font-bold flex items-center gap-0.5">
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-500 animate-pulse" /> ✗ Invalid GSTIN format
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -386,10 +465,11 @@ export default function DispatchBilling({
                     <input
                       type="text"
                       required
+                      disabled={!isEditable}
                       placeholder="e.g. V-Trans, SafeExpress"
                       value={transporter}
                       onChange={(e) => setTransporter(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400"
                     />
                   </div>
 
@@ -399,30 +479,83 @@ export default function DispatchBilling({
                       <input
                         type="text"
                         required
+                        disabled={!isEditable}
                         placeholder="MH-12-QE-1022"
                         value={vehicleNo}
                         onChange={(e) => setVehicleNo(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="block font-semibold text-slate-600">e-Way Bill No (Optional)</label>
+                      <label className="block font-semibold text-slate-600">e-Way Bill No {isEwayMandated && '*'}</label>
                       <input
                         type="text"
-                        placeholder="e.g. 121489028"
+                        required={isEwayMandated}
+                        disabled={!isEditable}
+                        placeholder={isEwayMandated ? "Mandatory for > ₹50K" : "e.g. 121489028"}
                         value={ewayBillNo}
                         onChange={(e) => setEwayBillNo(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="w-full bg-white border border-slate-200 rounded p-2 text-slate-850 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-50 disabled:text-slate-400"
                       />
                     </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg shadow-md flex items-center justify-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-4 h-4" /> Save Dispatch Cargo & Bill
-                  </button>
+                  {isEwayMandated && (
+                    <div className="space-y-2">
+                      <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-lg text-[11px] font-semibold space-y-1">
+                        <div className="flex items-center gap-1.5 text-rose-700">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                          <span>⚠️ Compliance Alert: Cargo value ({formatINR(selectedOrderObj.totalAmount)}) exceeds ₹50,000.</span>
+                        </div>
+                        <p className="text-slate-500 font-medium ml-5">Under GST CGST Rule 138, generating an e-Way Bill is legally mandated before dispatching this cargo.</p>
+                      </div>
+
+                      <label className="flex items-start gap-2 text-xs text-slate-650 cursor-pointer pt-1">
+                        <input
+                          type="checkbox"
+                          disabled={!isEditable}
+                          checked={nicEwayChecked}
+                          onChange={(e) => setNicEwayChecked(e.target.checked)}
+                          className="rounded mt-0.5 bg-white border-slate-200 text-brand-500 focus:ring-brand-500"
+                        />
+                        <span className="font-semibold text-[11px] text-slate-650 leading-tight">I acknowledge and authorize automated NIC API e-Way Bill generation for this consignment.</span>
+                      </label>
+                    </div>
+                  )}
+
+                  {(() => {
+                    const isSubmitDisabled = !isEditable || !selectedOrderId || !transporter || !vehicleNo || !isGstinValid || (isEwayMandated && (!ewayBillNo || ewayBillNo.trim() === '' || !nicEwayChecked));
+                    return (
+                      <button
+                        type="submit"
+                        disabled={isSubmitDisabled}
+                        className={`w-full py-2.5 font-bold rounded-lg shadow-md flex items-center justify-center gap-1.5 transition-all
+                          ${isSubmitDisabled 
+                            ? 'bg-slate-200 border border-slate-300 text-slate-400 cursor-not-allowed' 
+                            : 'bg-brand-600 hover:bg-brand-500 text-white cursor-pointer'
+                          }
+                        `}
+                      >
+                        {!isEditable ? (
+                          <>
+                            <AlertCircle className="w-4 h-4" /> Operations Locked
+                          </>
+                        ) : isEwayMandated && (!ewayBillNo || ewayBillNo.trim() === '' || !nicEwayChecked) ? (
+                          <>
+                            <AlertCircle className="w-4 h-4" /> e-Way Verification Required
+                          </>
+                        ) : !isGstinValid ? (
+                          <>
+                            <AlertCircle className="w-4 h-4" /> Fix GSTIN Format
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" /> Save Dispatch Cargo & Bill
+                          </>
+                        )}
+                      </button>
+                    );
+                  })()}
                 </form>
               </div>
 
@@ -479,10 +612,16 @@ export default function DispatchBilling({
                                   <Share2 className="w-3 h-3" /> WhatsApp Template
                                 </button>
                                 <button
+                                  disabled={!isEditable}
                                   onClick={() => onUpdateInvoiceStatus(inv.id, 'Paid')}
-                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-[10px] shadow-sm"
+                                  className={`px-2.5 py-1 font-bold rounded text-[10px] shadow-sm transition-all
+                                    ${!isEditable 
+                                      ? 'bg-slate-150 text-slate-400 border border-slate-200 cursor-not-allowed' 
+                                      : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
+                                    }
+                                  `}
                                 >
-                                  Mark Paid
+                                  {!isEditable ? '🔒 Locked' : 'Mark Paid'}
                                 </button>
                               </div>
                             ) : (
