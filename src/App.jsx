@@ -394,6 +394,10 @@ export default function App() {
             productProfitability={productProfitability}
             machines={filteredMachines}
             productionLogs={productionLogs}
+            customers={customers}
+            orders={orders}
+            inventory={inventory}
+            dispatchBilling={dispatchBilling}
           />
         );
 
