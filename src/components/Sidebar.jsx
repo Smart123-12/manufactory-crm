@@ -15,11 +15,21 @@ import {
   Settings as SettingsIcon,
   ChevronLeft,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  LogOut
 } from 'lucide-react';
 
-export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, alertsCount }) {
+export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, alertsCount, userRole = 'Owner', onLogout }) {
   
+  const rolePermissions = {
+    'Owner': ['dashboard', 'crm', 'customers', 'quotations', 'orders', 'inventory', 'production', 'machines', 'dispatch', 'billing', 'reports', 'workers', 'settings'],
+    'Admin': ['dashboard', 'crm', 'customers', 'quotations', 'orders', 'inventory', 'production', 'machines', 'dispatch', 'billing', 'reports', 'workers', 'settings'],
+    'Sales Team': ['crm', 'customers', 'quotations', 'orders', 'settings'],
+    'Store Manager': ['inventory', 'settings'],
+    'Production Supervisor': ['production', 'machines', 'workers', 'settings'],
+    'Accountant': ['dispatch', 'billing', 'reports', 'settings']
+  };
+
   const menuItems = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
     { id: 'crm', name: 'CRM Pipeline', icon: Target },
@@ -35,6 +45,9 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
     { id: 'workers', name: 'Worker Shift Hub', icon: UserCheck },
     { id: 'settings', name: 'Settings', icon: SettingsIcon },
   ];
+
+  const allowedTabs = rolePermissions[userRole] || [];
+  const filteredMenuItems = menuItems.filter(item => allowedTabs.includes(item.id));
 
   return (
     <aside 
@@ -65,8 +78,8 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         </div>
 
         {/* Menu Navigation */}
-        <nav className="p-3 space-y-1.5 overflow-y-auto max-h-[calc(100vh-140px)]">
-          {menuItems.map((item) => {
+        <nav className="p-3 space-y-1.5 overflow-y-auto max-h-[calc(100vh-180px)]">
+          {filteredMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             
@@ -107,15 +120,27 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
       </div>
 
       {/* Footer Info */}
-      {sidebarOpen && (
-        <div className="p-4 border-t border-slate-100 bg-slate-50/30 text-center">
-          <p className="text-[10px] text-slate-400 font-mono font-bold uppercase tracking-wider">Manufactory CRM v1.2</p>
-          <div className="mt-1 flex items-center justify-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-            <span className="text-[10px] text-slate-400 font-bold">Cloud Synced</span>
+      <div className="border-t border-slate-100 bg-slate-50/30 p-3 space-y-1.5">
+        {/* Sign Out Button */}
+        <button
+          onClick={onLogout}
+          className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50/50 hover:text-rose-550 transition-all`}
+          title={!sidebarOpen ? "Sign Out" : ""}
+        >
+          <LogOut className="w-4.5 h-4.5 flex-shrink-0" />
+          {sidebarOpen && <span>Sign Out</span>}
+        </button>
+
+        {sidebarOpen && (
+          <div className="text-center pt-0.5">
+            <p className="text-[10px] text-slate-400 font-mono font-bold uppercase tracking-wider">Manufactory CRM v1.2</p>
+            <div className="mt-1 flex items-center justify-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+              <span className="text-[10px] text-slate-400 font-bold">Cloud Synced</span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </aside>
   );
 }

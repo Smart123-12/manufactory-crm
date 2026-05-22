@@ -8,6 +8,7 @@ import Production from './pages/Production';
 import DispatchBilling from './pages/DispatchBilling';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import LandingPage from './pages/LandingPage';
 
 import { 
   initialCustomers, 
@@ -23,10 +24,44 @@ import {
 } from './data/mockData';
 
 export default function App() {
+  // Global View Mode & Dynamic Roles State
+  const [viewMode, setViewMode] = useState('landing');
+  const [userRole, setUserRole] = useState('Owner');
+
   // Navigation & UI States
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeIndustry, setActiveIndustry] = useState('all'); // all, cnc, plastic, packaging
+
+  const rolePermissions = {
+    'Owner': ['dashboard', 'crm', 'customers', 'quotations', 'orders', 'inventory', 'production', 'machines', 'dispatch', 'billing', 'reports', 'workers', 'settings'],
+    'Admin': ['dashboard', 'crm', 'customers', 'quotations', 'orders', 'inventory', 'production', 'machines', 'dispatch', 'billing', 'reports', 'workers', 'settings'],
+    'Sales Team': ['crm', 'customers', 'quotations', 'orders', 'settings'],
+    'Store Manager': ['inventory', 'settings'],
+    'Production Supervisor': ['production', 'machines', 'workers', 'settings'],
+    'Accountant': ['dispatch', 'billing', 'reports', 'settings']
+  };
+
+  const handleLogin = (role) => {
+    setUserRole(role);
+    setViewMode('app');
+    const permittedTabs = rolePermissions[role] || [];
+    if (permittedTabs.length > 0) {
+      if (permittedTabs.includes('dashboard')) {
+        setActiveTab('dashboard');
+      } else {
+        setActiveTab(permittedTabs[0]);
+      }
+    } else {
+      setActiveTab('dashboard');
+    }
+  };
+
+  const handleLogout = () => {
+    setViewMode('landing');
+    setUserRole('Owner');
+    setActiveTab('dashboard');
+  };
 
   // Global Mock States (mutatable during local testing!)
   const [customers, setCustomers] = useState(initialCustomers);
@@ -421,6 +456,10 @@ export default function App() {
     }
   };
 
+  if (viewMode === 'landing') {
+    return <LandingPage onLogin={handleLogin} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex">
       
@@ -431,6 +470,8 @@ export default function App() {
         sidebarOpen={sidebarOpen} 
         setSidebarOpen={setSidebarOpen}
         alertsCount={lowStockCount}
+        userRole={userRole}
+        onLogout={handleLogout}
       />
 
       {/* 2. Main Content Wrapper */}
@@ -447,6 +488,8 @@ export default function App() {
           setActiveIndustry={setActiveIndustry}
           notifications={notifications}
           markNotificationRead={markNotificationRead}
+          userRole={userRole}
+          onLogout={handleLogout}
         />
 
         {/* Dynamic page container */}

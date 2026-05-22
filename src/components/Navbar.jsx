@@ -18,10 +18,25 @@ export default function Navbar({
   activeIndustry, 
   setActiveIndustry,
   notifications,
-  markNotificationRead
+  markNotificationRead,
+  userRole = 'Owner',
+  onLogout
 }) {
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+
+  const getRoleProfile = () => {
+    switch (userRole) {
+      case 'Owner': return { initials: 'OW', name: 'Rajesh Kumar', title: 'Factory Owner' };
+      case 'Admin': return { initials: 'AD', name: 'Amit Desai', title: 'Plant Admin' };
+      case 'Sales Team': return { initials: 'ST', name: 'Karan Johar', title: 'Sales Executive' };
+      case 'Store Manager': return { initials: 'SM', name: 'Vijay Patel', title: 'Store Keeper' };
+      case 'Production Supervisor': return { initials: 'PS', name: 'Sanjay Shah', title: 'Shop Supervisor' };
+      case 'Accountant': return { initials: 'AC', name: 'Ramesh Vyas', title: 'Chief Accountant' };
+      default: return { initials: 'OW', name: 'Rajesh Kumar', title: 'Factory Owner' };
+    }
+  };
+  const profile = getRoleProfile();
 
   const getPageTitle = () => {
     switch (activeTab) {
@@ -158,11 +173,11 @@ export default function Navbar({
             className="flex items-center gap-2.5 p-1 px-2 rounded-lg hover:bg-slate-100 transition-colors text-left"
           >
             <div className="w-8 h-8 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center font-bold text-sm text-brand-600">
-              AD
+              {profile.initials}
             </div>
             <div className="hidden lg:block text-xs">
-              <p className="font-bold text-slate-700 leading-none">Amit Desai</p>
-              <p className="text-[10px] text-slate-400 mt-0.5 font-bold">Plant Manager</p>
+              <p className="font-bold text-slate-700 leading-none">{profile.name}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5 font-bold">{profile.title}</p>
             </div>
           </button>
 
@@ -181,7 +196,10 @@ export default function Navbar({
                   <SlidersHorizontal className="w-4 h-4 text-slate-400" /> Shift Configurations
                 </button>
                 <div className="border-t border-slate-100 my-1"></div>
-                <button className="w-full text-left p-2.5 text-rose-600 hover:text-rose-500 rounded-lg hover:bg-rose-50/10 transition-all flex items-center gap-2 font-bold">
+                <button 
+                  onClick={onLogout}
+                  className="w-full text-left p-2.5 text-rose-600 hover:text-rose-500 rounded-lg hover:bg-rose-50/10 transition-all flex items-center gap-2 font-bold"
+                >
                   Sign Out
                 </button>
               </div>
